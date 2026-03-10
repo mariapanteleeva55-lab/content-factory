@@ -1,0 +1,13 @@
+backend/.env
+backend/venv/
+__pycache__/
+*.pyc
+*.pyo
+.env
+node_modules/
+.next/
+storage/
+*.mp4
+*.mp3
+*.wav
+*.db
