@@ -1,0 +1,291 @@
+<!DOCTYPE html>
+<html lang="ru" class="dark">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Чат — ИИ-Империя</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <style>
+        body { font-family: system-ui, -apple-system, sans-serif; }
+
+        .msg-user { animation: slideRight 0.18s ease; }
+        .msg-ai   { animation: slideLeft 0.18s ease; }
+
+        @keyframes slideRight {
+            from { opacity: 0; transform: translateX(8px); }
+            to   { opacity: 1; transform: translateX(0); }
+        }
+        @keyframes slideLeft {
+            from { opacity: 0; transform: translateX(-8px); }
+            to   { opacity: 1; transform: translateX(0); }
+        }
+
+        .typing span {
+            display: inline-block;
+            width: 5px; height: 5px;
+            background: #6366f1;
+            border-radius: 50%;
+            animation: blink 1.1s infinite;
+        }
+        .typing span:nth-child(2) { animation-delay: 0.18s; }
+        .typing span:nth-child(3) { animation-delay: 0.36s; }
+        @keyframes blink {
+            0%, 60%, 100% { transform: translateY(0); opacity: 0.6; }
+            30% { transform: translateY(-5px); opacity: 1; }
+        }
+
+        #messageInput:focus { outline: none; }
+        ::-webkit-scrollbar { width: 4px; }
+        ::-webkit-scrollbar-thumb { background: #2d3748; border-radius: 2px; }
+
+        /* Markdown-like formatting in AI messages */
+        .ai-text strong { color: #e2e8f0; }
+        .ai-text code {
+            background: #1f2937;
+            color: #a5b4fc;
+            padding: 1px 5px;
+            border-radius: 4px;
+            font-family: 'Courier New', monospace;
+            font-size: 0.85em;
+        }
+        .ai-text ul { padding-left: 1.2em; }
+        .ai-text li { margin: 2px 0; }
+    </style>
+</head>
+<body class="bg-gray-950 text-gray-100 h-screen flex flex-col overflow-hidden">
+
+    <!-- Header -->
+    <header class="border-b border-gray-800 bg-gray-900 px-4 py-3 flex items-center gap-3 flex-shrink-0">
+        <a href="index.html" class="text-gray-500 hover:text-gray-300 w-8 h-8 flex items-center justify-center rounded-lg hover:bg-gray-800 transition-colors text-lg">←</a>
+        <div id="empAvatar" class="w-10 h-10 bg-gray-700 rounded-full flex items-center justify-center text-xl select-none">👤</div>
+        <div class="flex-1 min-w-0">
+            <div id="empName" class="font-semibold text-white text-sm truncate">Загрузка...</div>
+            <div id="empRole" class="text-xs text-gray-500 truncate"></div>
+        </div>
+        <div class="flex items-center gap-1.5 flex-shrink-0">
+            <div class="w-1.5 h-1.5 rounded-full bg-green-500"></div>
+            <span class="text-xs text-gray-600">онлайн</span>
+        </div>
+        <button onclick="clearChat()" title="Очистить историю" class="text-gray-600 hover:text-gray-400 ml-1 p-1.5 rounded-lg hover:bg-gray-800 transition-colors text-sm">🗑</button>
+    </header>
+
+    <!-- Messages -->
+    <div id="messages" class="flex-1 overflow-y-auto px-4 py-4 space-y-3">
+        <div class="text-center text-gray-700 text-xs py-4 select-none" id="startLabel">Начало диалога</div>
+    </div>
+
+    <!-- Typing indicator -->
+    <div id="typingRow" class="hidden px-4 pb-2 flex-shrink-0">
+        <div class="flex items-end gap-2">
+            <div id="typingAvatar" class="w-7 h-7 bg-gray-700 rounded-full flex items-center justify-center text-sm flex-shrink-0">👤</div>
+            <div class="bg-gray-800 rounded-2xl rounded-bl-sm px-4 py-2.5">
+                <div class="typing flex gap-1"><span></span><span></span><span></span></div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Input area -->
+    <div class="border-t border-gray-800 bg-gray-900 p-3 flex-shrink-0">
+        <div class="flex gap-2 items-end">
+            <textarea id="messageInput"
+                placeholder="Напишите сообщение..."
+                rows="1"
+                class="flex-1 bg-gray-800 border border-gray-700 focus:border-indigo-500 rounded-xl px-3.5 py-2.5 text-sm text-white placeholder-gray-600 resize-none transition-colors"
+                onkeydown="onKey(event)"
+                oninput="autoGrow(this)"></textarea>
+            <button onclick="send()" id="sendBtn"
+                class="w-10 h-10 bg-indigo-600 hover:bg-indigo-500 disabled:opacity-40 disabled:cursor-not-allowed rounded-xl flex items-center justify-center flex-shrink-0 transition-colors">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+                    <path d="M22 2L11 13M22 2L15 22L11 13L2 9L22 2Z"/>
+                </svg>
+            </button>
+        </div>
+        <div class="text-center text-xs text-gray-700 mt-1.5">Enter — отправить · Shift+Enter — перенос строки</div>
+    </div>
+
+    <script>
+        const { createClient } = supabase;
+
+        const SUPABASE_URL  = localStorage.getItem('ii_supabase_url')  || '';
+        const SUPABASE_KEY  = localStorage.getItem('ii_supabase_key')  || '';
+        const ANTHROPIC_KEY = localStorage.getItem('ii_anthropic_key') || '';
+
+        const db = (SUPABASE_URL && SUPABASE_KEY) ? createClient(SUPABASE_URL, SUPABASE_KEY) : null;
+
+        const params = new URLSearchParams(location.search);
+        const employeeId = params.get('id');
+
+        let employee = null;
+        let history  = []; // { role, content }
+
+        // ===== INIT =====
+        async function init() {
+            if (!employeeId) { location.href = 'index.html'; return; }
+            if (!db) { alert('Настройте подключение к Supabase на главной странице'); location.href = 'index.html'; return; }
+
+            const { data, error } = await db.from('employees').select('*').eq('id', employeeId).single();
+            if (error || !data) { alert('Сотрудник не найден'); location.href = 'index.html'; return; }
+
+            employee = data;
+            document.title = `${employee.name} — ИИ-Империя`;
+            document.getElementById('empAvatar').textContent    = employee.avatar_emoji || '👤';
+            document.getElementById('empName').textContent      = employee.name;
+            document.getElementById('empRole').textContent      = employee.role;
+            document.getElementById('typingAvatar').textContent = employee.avatar_emoji || '👤';
+
+            await loadHistory();
+            scrollBottom();
+            document.getElementById('messageInput').focus();
+        }
+
+        async function loadHistory() {
+            const { data } = await db.from('messages')
+                .select('*')
+                .eq('employee_id', employeeId)
+                .order('created_at');
+
+            if (!data || data.length === 0) return;
+
+            history = data.map(m => ({ role: m.role, content: m.content }));
+
+            const container = document.getElementById('messages');
+            data.forEach(m => container.insertAdjacentHTML('beforeend', bubble(m.role, m.content)));
+        }
+
+        // ===== SEND =====
+        async function send() {
+            const input = document.getElementById('messageInput');
+            const text  = input.value.trim();
+            if (!text) return;
+            if (!ANTHROPIC_KEY) { alert('Укажите Anthropic API Key в настройках на главной странице'); return; }
+
+            input.value = '';
+            input.style.height = 'auto';
+            document.getElementById('sendBtn').disabled = true;
+
+            // Show user message immediately
+            appendBubble('user', text);
+            history.push({ role: 'user', content: text });
+            scrollBottom();
+
+            // Save user message to DB
+            db.from('messages').insert({ employee_id: employeeId, role: 'user', content: text });
+
+            // Show typing
+            const typing = document.getElementById('typingRow');
+            typing.classList.remove('hidden');
+            scrollBottom();
+
+            try {
+                const res = await fetch('https://api.anthropic.com/v1/messages', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'x-api-key': ANTHROPIC_KEY,
+                        'anthropic-version': '2023-06-01',
+                        'anthropic-dangerous-direct-browser-access': 'true'
+                    },
+                    body: JSON.stringify({
+                        model: 'claude-opus-4-6',
+                        max_tokens: 2048,
+                        system: employee.system_prompt || `Ты — ${employee.name}, ${employee.role}. Отвечай на русском языке профессионально и по делу.`,
+                        messages: history
+                    })
+                });
+
+                if (!res.ok) {
+                    const err = await res.json().catch(() => ({}));
+                    throw new Error(err.error?.message || `HTTP ${res.status}`);
+                }
+
+                const data  = await res.json();
+                const reply = data.content?.[0]?.text || '(пустой ответ)';
+
+                history.push({ role: 'assistant', content: reply });
+                db.from('messages').insert({ employee_id: employeeId, role: 'assistant', content: reply });
+
+                typing.classList.add('hidden');
+                appendBubble('assistant', reply);
+                scrollBottom();
+
+            } catch (err) {
+                typing.classList.add('hidden');
+                const container = document.getElementById('messages');
+                container.insertAdjacentHTML('beforeend',
+                    `<div class="text-center text-red-400 text-xs py-2">Ошибка API: ${escHtml(err.message)}</div>`);
+                scrollBottom();
+            }
+
+            document.getElementById('sendBtn').disabled = false;
+            input.focus();
+        }
+
+        // ===== UI HELPERS =====
+        function bubble(role, content) {
+            const time = new Date().toLocaleTimeString('ru', { hour: '2-digit', minute: '2-digit' });
+            if (role === 'user') {
+                return `<div class="flex justify-end msg-user">
+                    <div class="max-w-[78%] sm:max-w-[65%]">
+                        <div class="bg-indigo-600 rounded-2xl rounded-br-sm px-4 py-2.5 text-sm text-white whitespace-pre-wrap break-words">${escHtml(content)}</div>
+                        <div class="text-right text-xs text-gray-700 mt-0.5 pr-1">${time}</div>
+                    </div>
+                </div>`;
+            } else {
+                return `<div class="flex gap-2 items-end msg-ai">
+                    <div class="w-7 h-7 bg-gray-700 rounded-full flex items-center justify-center text-base flex-shrink-0">${employee?.avatar_emoji || '👤'}</div>
+                    <div class="max-w-[78%] sm:max-w-[65%]">
+                        <div class="bg-gray-800 rounded-2xl rounded-bl-sm px-4 py-2.5 text-sm text-gray-100 ai-text break-words">${formatAI(content)}</div>
+                        <div class="text-xs text-gray-700 mt-0.5 pl-1">${time}</div>
+                    </div>
+                </div>`;
+            }
+        }
+
+        function appendBubble(role, content) {
+            document.getElementById('messages').insertAdjacentHTML('beforeend', bubble(role, content));
+        }
+
+        // Basic markdown: **bold**, `code`, - lists
+        function formatAI(text) {
+            return escHtml(text)
+                .replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>')
+                .replace(/`([^`]+)`/g, '<code>$1</code>')
+                .replace(/\n/g, '<br>');
+        }
+
+        function scrollBottom() {
+            const c = document.getElementById('messages');
+            c.scrollTop = c.scrollHeight;
+        }
+
+        function escHtml(s) {
+            return String(s)
+                .replace(/&/g,'&amp;')
+                .replace(/</g,'&lt;')
+                .replace(/>/g,'&gt;')
+                .replace(/"/g,'&quot;');
+        }
+
+        function onKey(e) {
+            if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); send(); }
+        }
+
+        function autoGrow(el) {
+            el.style.height = 'auto';
+            el.style.height = Math.min(el.scrollHeight, 130) + 'px';
+        }
+
+        async function clearChat() {
+            if (!employee) return;
+            if (!confirm(`Очистить историю чата с ${employee.name}?`)) return;
+            await db.from('messages').delete().eq('employee_id', employeeId);
+            history = [];
+            const c = document.getElementById('messages');
+            c.innerHTML = '<div class="text-center text-gray-700 text-xs py-4 select-none" id="startLabel">Начало диалога</div>';
+        }
+
+        init();
+    </script>
+</body>
+</html>

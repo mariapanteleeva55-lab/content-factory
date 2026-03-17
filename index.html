@@ -1,0 +1,647 @@
+<!DOCTYPE html>
+<html lang="ru" class="dark">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>ИИ-Империя — Командный центр</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <script>
+        tailwind.config = {
+            darkMode: 'class',
+            theme: {
+                extend: {
+                    colors: {
+                        brand: { 500: '#6366f1', 600: '#4f46e5', 700: '#4338ca' }
+                    }
+                }
+            }
+        }
+    </script>
+    <style>
+        body { font-family: system-ui, -apple-system, sans-serif; }
+        .employee-card { transition: all 0.2s ease; }
+        .employee-card:hover { transform: translateY(-1px); }
+        .status-dot {
+            width: 7px; height: 7px;
+            background: #22c55e; border-radius: 50%;
+            animation: pulse-dot 2s infinite;
+        }
+        @keyframes pulse-dot {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.4; }
+        }
+        .modal-overlay { animation: fadeIn 0.15s ease; }
+        .modal-content { animation: slideUp 0.2s ease; }
+        @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
+        @keyframes slideUp {
+            from { transform: translateY(16px); opacity: 0; }
+            to { transform: translateY(0); opacity: 1; }
+        }
+        .task-card { transition: all 0.15s ease; cursor: pointer; }
+        .task-card:hover { transform: translateY(-1px); border-color: #4b5563 !important; }
+        ::-webkit-scrollbar { width: 5px; }
+        ::-webkit-scrollbar-track { background: transparent; }
+        ::-webkit-scrollbar-thumb { background: #374151; border-radius: 3px; }
+        .dept-badge { font-size: 10px; }
+    </style>
+</head>
+<body class="bg-gray-950 text-gray-100 min-h-screen">
+
+    <!-- Header -->
+    <header class="border-b border-gray-800 bg-gray-900/90 backdrop-blur-sm sticky top-0 z-10">
+        <div class="flex items-center justify-between px-5 py-3.5">
+            <div class="flex items-center gap-4">
+                <div class="flex items-center gap-2">
+                    <div class="w-8 h-8 bg-indigo-600 rounded-lg flex items-center justify-center font-bold text-sm select-none">ИИ</div>
+                    <span class="text-lg font-bold text-white">ИИ-Империя</span>
+                </div>
+                <nav class="flex items-center gap-1">
+                    <a href="index.html" class="text-sm text-white bg-gray-800 px-3 py-1.5 rounded-lg">Команда</a>
+                    <a href="content.html" class="text-sm text-gray-500 hover:text-gray-300 px-3 py-1.5 rounded-lg hover:bg-gray-800 transition-colors">Контент</a>
+                </nav>
+            </div>
+            <div class="flex items-center gap-2">
+                <button onclick="openNewTaskModal()"
+                    class="flex items-center gap-1.5 bg-indigo-600 hover:bg-indigo-500 text-white px-3 py-1.5 rounded-lg text-sm font-medium transition-colors">
+                    <span class="text-base leading-none">+</span> Задача
+                </button>
+                <button onclick="openSettingsModal()"
+                    class="text-gray-500 hover:text-gray-300 p-2 rounded-lg hover:bg-gray-800 transition-colors text-base">⚙️</button>
+            </div>
+        </div>
+    </header>
+
+    <!-- Layout -->
+    <div class="flex" style="height: calc(100vh - 57px)">
+
+        <!-- Sidebar: Employees -->
+        <aside class="w-60 border-r border-gray-800 bg-gray-900/40 flex flex-col overflow-hidden flex-shrink-0">
+            <div class="px-4 py-3 border-b border-gray-800 flex items-center justify-between">
+                <span class="text-xs font-semibold text-gray-500 uppercase tracking-wider">Команда</span>
+                <span id="employeeCount" class="text-xs text-gray-700">0</span>
+            </div>
+            <div id="employeeList" class="flex-1 overflow-y-auto p-3 space-y-2">
+                <div id="emptyTeam" class="text-center py-10 text-gray-700">
+                    <div class="text-4xl mb-3">🏢</div>
+                    <div class="text-sm">Компания пуста</div>
+                    <div class="text-xs mt-1">Наймите первого сотрудника</div>
+                </div>
+            </div>
+            <div class="p-3 border-t border-gray-800">
+                <button onclick="openHireModal()"
+                    class="w-full flex items-center justify-center gap-2 border border-dashed border-gray-700 hover:border-indigo-500 hover:text-indigo-400 text-gray-600 rounded-lg py-2 text-sm transition-colors">
+                    <span class="text-lg leading-none">+</span> Нанять
+                </button>
+            </div>
+        </aside>
+
+        <!-- Main: Kanban -->
+        <main class="flex-1 overflow-auto p-5">
+            <div class="flex items-center justify-between mb-5">
+                <h2 class="font-semibold text-white">Задачи</h2>
+                <span id="totalTasks" class="text-xs text-gray-600">0 задач</span>
+            </div>
+            <div class="grid grid-cols-3 gap-4" style="min-height: calc(100% - 52px)">
+
+                <!-- TODO -->
+                <div class="flex flex-col">
+                    <div class="flex items-center gap-2 mb-3">
+                        <div class="w-2 h-2 rounded-full bg-gray-500"></div>
+                        <span class="text-sm font-medium text-gray-400">Новые</span>
+                        <span id="todoCount" class="text-xs bg-gray-800 text-gray-600 px-1.5 py-0.5 rounded-full">0</span>
+                    </div>
+                    <div id="todoColumn" class="flex-1 bg-gray-900/50 rounded-xl p-2.5 space-y-2 border border-gray-800/50 min-h-48"></div>
+                </div>
+
+                <!-- IN PROGRESS -->
+                <div class="flex flex-col">
+                    <div class="flex items-center gap-2 mb-3">
+                        <div class="w-2 h-2 rounded-full bg-yellow-500"></div>
+                        <span class="text-sm font-medium text-gray-400">В работе</span>
+                        <span id="inProgressCount" class="text-xs bg-gray-800 text-gray-600 px-1.5 py-0.5 rounded-full">0</span>
+                    </div>
+                    <div id="inProgressColumn" class="flex-1 bg-gray-900/50 rounded-xl p-2.5 space-y-2 border border-gray-800/50 min-h-48"></div>
+                </div>
+
+                <!-- DONE -->
+                <div class="flex flex-col">
+                    <div class="flex items-center gap-2 mb-3">
+                        <div class="w-2 h-2 rounded-full bg-green-500"></div>
+                        <span class="text-sm font-medium text-gray-400">Готово</span>
+                        <span id="doneCount" class="text-xs bg-gray-800 text-gray-600 px-1.5 py-0.5 rounded-full">0</span>
+                    </div>
+                    <div id="doneColumn" class="flex-1 bg-gray-900/50 rounded-xl p-2.5 space-y-2 border border-gray-800/50 min-h-48"></div>
+                </div>
+
+            </div>
+        </main>
+
+    </div>
+
+    <!-- ======= MODALS ======= -->
+
+    <!-- Settings -->
+    <div id="settingsModal" class="hidden fixed inset-0 bg-black/70 backdrop-blur-sm z-50 flex items-center justify-center modal-overlay" onclick="backdropClose(event,'settingsModal')">
+        <div class="bg-gray-900 border border-gray-700 rounded-2xl w-full max-w-md mx-4 p-6 modal-content">
+            <h3 class="text-base font-semibold mb-4">⚙️ Настройки подключения</h3>
+            <div class="space-y-3">
+                <div>
+                    <label class="block text-xs text-gray-500 mb-1">Supabase URL</label>
+                    <input id="cfgSupabaseUrl" type="text" placeholder="https://xxxx.supabase.co"
+                        class="w-full bg-gray-800 border border-gray-700 rounded-lg px-3 py-2 text-sm text-white placeholder-gray-600 focus:outline-none focus:border-indigo-500 transition-colors">
+                </div>
+                <div>
+                    <label class="block text-xs text-gray-500 mb-1">Supabase Anon Key</label>
+                    <input id="cfgSupabaseKey" type="password" placeholder="eyJhbGc..."
+                        class="w-full bg-gray-800 border border-gray-700 rounded-lg px-3 py-2 text-sm text-white placeholder-gray-600 focus:outline-none focus:border-indigo-500 transition-colors">
+                </div>
+                <div>
+                    <label class="block text-xs text-gray-500 mb-1">Anthropic API Key</label>
+                    <input id="cfgAnthropicKey" type="password" placeholder="sk-ant-api..."
+                        class="w-full bg-gray-800 border border-gray-700 rounded-lg px-3 py-2 text-sm text-white placeholder-gray-600 focus:outline-none focus:border-indigo-500 transition-colors">
+                </div>
+                <div class="text-xs text-gray-600 bg-gray-800/60 rounded-lg p-3">
+                    🔒 Ключи хранятся только в вашем браузере (localStorage) и отправляются напрямую в Supabase и Anthropic.
+                </div>
+            </div>
+            <div class="flex gap-3 mt-5">
+                <button onclick="saveSettings()" class="flex-1 bg-indigo-600 hover:bg-indigo-500 text-white py-2 rounded-lg text-sm font-medium transition-colors">Сохранить</button>
+                <button onclick="closeModal('settingsModal')" class="px-4 text-gray-500 hover:text-gray-300 text-sm transition-colors">Отмена</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Hire Employee -->
+    <div id="hireModal" class="hidden fixed inset-0 bg-black/70 backdrop-blur-sm z-50 flex items-center justify-center modal-overlay" onclick="backdropClose(event,'hireModal')">
+        <div class="bg-gray-900 border border-gray-700 rounded-2xl w-full max-w-md mx-4 p-6 modal-content">
+            <h3 class="text-base font-semibold mb-4">👤 Нанять сотрудника</h3>
+            <div class="space-y-3">
+                <div class="grid grid-cols-3 gap-3">
+                    <div class="col-span-2">
+                        <label class="block text-xs text-gray-500 mb-1">Имя</label>
+                        <input id="hireName" type="text" placeholder="Иван Петров"
+                            class="w-full bg-gray-800 border border-gray-700 rounded-lg px-3 py-2 text-sm text-white placeholder-gray-600 focus:outline-none focus:border-indigo-500 transition-colors">
+                    </div>
+                    <div>
+                        <label class="block text-xs text-gray-500 mb-1">Аватар</label>
+                        <input id="hireEmoji" type="text" placeholder="👔" maxlength="4"
+                            class="w-full bg-gray-800 border border-gray-700 rounded-lg px-3 py-2 text-sm text-white placeholder-gray-600 focus:outline-none focus:border-indigo-500 transition-colors text-center text-lg">
+                    </div>
+                </div>
+                <div>
+                    <label class="block text-xs text-gray-500 mb-1">Должность</label>
+                    <input id="hireRole" type="text" placeholder="CEO / Разработчик / Маркетолог..."
+                        class="w-full bg-gray-800 border border-gray-700 rounded-lg px-3 py-2 text-sm text-white placeholder-gray-600 focus:outline-none focus:border-indigo-500 transition-colors">
+                </div>
+                <div>
+                    <label class="block text-xs text-gray-500 mb-1">Отдел</label>
+                    <select id="hireDepartment" class="w-full bg-gray-800 border border-gray-700 rounded-lg px-3 py-2 text-sm text-white focus:outline-none focus:border-indigo-500 transition-colors">
+                        <option value="management">👑 Управление</option>
+                        <option value="dev">💻 Разработка</option>
+                        <option value="marketing">📣 Маркетинг</option>
+                        <option value="sales">💰 Продажи</option>
+                        <option value="hr">🤝 HR</option>
+                        <option value="finance">📊 Финансы</option>
+                        <option value="design">🎨 Дизайн</option>
+                        <option value="other">📦 Другое</option>
+                    </select>
+                </div>
+                <div>
+                    <label class="block text-xs text-gray-500 mb-1">Описание роли <span class="text-gray-700">(для ИИ-поведения)</span></label>
+                    <textarea id="hireDescription" rows="3"
+                        placeholder="Опишите чем занимается этот сотрудник, его стиль общения, экспертизу, характер..."
+                        class="w-full bg-gray-800 border border-gray-700 rounded-lg px-3 py-2 text-sm text-white placeholder-gray-600 focus:outline-none focus:border-indigo-500 transition-colors resize-none"></textarea>
+                </div>
+            </div>
+            <div class="flex gap-3 mt-5">
+                <button onclick="hireEmployee()" class="flex-1 bg-indigo-600 hover:bg-indigo-500 text-white py-2 rounded-lg text-sm font-medium transition-colors">Нанять</button>
+                <button onclick="closeModal('hireModal')" class="px-4 text-gray-500 hover:text-gray-300 text-sm transition-colors">Отмена</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- New Task -->
+    <div id="newTaskModal" class="hidden fixed inset-0 bg-black/70 backdrop-blur-sm z-50 flex items-center justify-center modal-overlay" onclick="backdropClose(event,'newTaskModal')">
+        <div class="bg-gray-900 border border-gray-700 rounded-2xl w-full max-w-md mx-4 p-6 modal-content">
+            <h3 class="text-base font-semibold mb-4">📋 Новая задача</h3>
+            <div class="space-y-3">
+                <div>
+                    <label class="block text-xs text-gray-500 mb-1">Название</label>
+                    <input id="taskTitle" type="text" placeholder="Что нужно сделать?"
+                        class="w-full bg-gray-800 border border-gray-700 rounded-lg px-3 py-2 text-sm text-white placeholder-gray-600 focus:outline-none focus:border-indigo-500 transition-colors">
+                </div>
+                <div>
+                    <label class="block text-xs text-gray-500 mb-1">Описание</label>
+                    <textarea id="taskDescription" rows="3" placeholder="Подробнее о задаче..."
+                        class="w-full bg-gray-800 border border-gray-700 rounded-lg px-3 py-2 text-sm text-white placeholder-gray-600 focus:outline-none focus:border-indigo-500 transition-colors resize-none"></textarea>
+                </div>
+                <div class="grid grid-cols-2 gap-3">
+                    <div>
+                        <label class="block text-xs text-gray-500 mb-1">Исполнитель</label>
+                        <select id="taskAssignee" class="w-full bg-gray-800 border border-gray-700 rounded-lg px-3 py-2 text-sm text-white focus:outline-none focus:border-indigo-500 transition-colors">
+                            <option value="">— не назначено —</option>
+                        </select>
+                    </div>
+                    <div>
+                        <label class="block text-xs text-gray-500 mb-1">Приоритет</label>
+                        <select id="taskPriority" class="w-full bg-gray-800 border border-gray-700 rounded-lg px-3 py-2 text-sm text-white focus:outline-none focus:border-indigo-500 transition-colors">
+                            <option value="low">🟢 Низкий</option>
+                            <option value="medium" selected>🟡 Средний</option>
+                            <option value="high">🔴 Высокий</option>
+                        </select>
+                    </div>
+                </div>
+            </div>
+            <div class="flex gap-3 mt-5">
+                <button onclick="createTask()" class="flex-1 bg-indigo-600 hover:bg-indigo-500 text-white py-2 rounded-lg text-sm font-medium transition-colors">Создать</button>
+                <button onclick="closeModal('newTaskModal')" class="px-4 text-gray-500 hover:text-gray-300 text-sm transition-colors">Отмена</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Edit Employee -->
+    <div id="editEmployeeModal" class="hidden fixed inset-0 bg-black/70 backdrop-blur-sm z-50 flex items-center justify-center modal-overlay" onclick="backdropClose(event,'editEmployeeModal')">
+        <div class="bg-gray-900 border border-gray-700 rounded-2xl w-full max-w-lg mx-4 p-6 modal-content">
+            <h3 class="text-base font-semibold mb-4">✏️ Редактировать сотрудника</h3>
+            <div class="space-y-3">
+                <div class="grid grid-cols-3 gap-3">
+                    <div class="col-span-2">
+                        <label class="block text-xs text-gray-500 mb-1">Имя</label>
+                        <input id="editName" type="text"
+                            class="w-full bg-gray-800 border border-gray-700 rounded-lg px-3 py-2 text-sm text-white focus:outline-none focus:border-indigo-500 transition-colors">
+                    </div>
+                    <div>
+                        <label class="block text-xs text-gray-500 mb-1">Аватар</label>
+                        <input id="editEmoji" type="text" maxlength="4"
+                            class="w-full bg-gray-800 border border-gray-700 rounded-lg px-3 py-2 text-sm text-white focus:outline-none focus:border-indigo-500 transition-colors text-center text-lg">
+                    </div>
+                </div>
+                <div>
+                    <label class="block text-xs text-gray-500 mb-1">Должность</label>
+                    <input id="editRole" type="text"
+                        class="w-full bg-gray-800 border border-gray-700 rounded-lg px-3 py-2 text-sm text-white focus:outline-none focus:border-indigo-500 transition-colors">
+                </div>
+                <div>
+                    <label class="block text-xs text-gray-500 mb-1">Системный промт <span class="text-gray-700">(полный текст инструкции для ИИ)</span></label>
+                    <textarea id="editSystemPrompt" rows="10"
+                        class="w-full bg-gray-800 border border-gray-700 rounded-lg px-3 py-2 text-sm text-white focus:outline-none focus:border-indigo-500 transition-colors resize-none font-mono"
+                        placeholder="Ты — Имя, Должность компании ИИ-Империя..."></textarea>
+                    <div class="text-xs text-gray-700 mt-1">Пишите свободно — это и есть «характер» и «инструкция» для сотрудника</div>
+                </div>
+            </div>
+            <div class="flex gap-3 mt-5">
+                <button onclick="saveEmployee()" class="flex-1 bg-indigo-600 hover:bg-indigo-500 text-white py-2 rounded-lg text-sm font-medium transition-colors">Сохранить</button>
+                <button onclick="closeModal('editEmployeeModal')" class="px-4 text-gray-500 hover:text-gray-300 text-sm transition-colors">Отмена</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Task Detail -->
+    <div id="taskDetailModal" class="hidden fixed inset-0 bg-black/70 backdrop-blur-sm z-50 flex items-center justify-center modal-overlay" onclick="backdropClose(event,'taskDetailModal')">
+        <div class="bg-gray-900 border border-gray-700 rounded-2xl w-full max-w-md mx-4 p-6 modal-content">
+            <div class="flex items-start justify-between mb-3">
+                <div class="flex-1 pr-3">
+                    <h3 class="font-semibold text-white" id="tdTitle"></h3>
+                    <div class="flex items-center gap-2 mt-1.5">
+                        <span id="tdPriority" class="text-xs px-2 py-0.5 rounded-full bg-gray-800 text-gray-400"></span>
+                        <span id="tdStatus" class="text-xs px-2 py-0.5 rounded-full bg-gray-800 text-gray-400"></span>
+                    </div>
+                </div>
+                <button onclick="closeModal('taskDetailModal')" class="text-gray-600 hover:text-gray-400 text-lg leading-none">×</button>
+            </div>
+            <p id="tdDesc" class="text-sm text-gray-500 mb-4 min-h-5"></p>
+            <div class="text-sm text-gray-600 mb-5">Исполнитель: <span id="tdAssignee" class="text-gray-300"></span></div>
+            <div class="text-xs text-gray-700 mb-4">Переместить в:</div>
+            <div class="flex gap-2 mb-3">
+                <button onclick="moveTask('todo')" class="flex-1 py-2 rounded-lg text-xs font-medium bg-gray-800 hover:bg-gray-700 transition-colors">📋 Новые</button>
+                <button onclick="moveTask('in_progress')" class="flex-1 py-2 rounded-lg text-xs font-medium bg-gray-800 hover:bg-yellow-900/40 hover:text-yellow-300 transition-colors">⚡ В работе</button>
+                <button onclick="moveTask('done')" class="flex-1 py-2 rounded-lg text-xs font-medium bg-gray-800 hover:bg-green-900/40 hover:text-green-300 transition-colors">✅ Готово</button>
+            </div>
+            <button onclick="deleteCurrentTask()" class="w-full py-2 rounded-lg text-xs text-red-500 border border-red-900/50 hover:border-red-700 transition-colors">🗑 Удалить задачу</button>
+        </div>
+    </div>
+
+    <!-- Notification toast -->
+    <div id="toast" class="hidden fixed bottom-5 right-5 bg-gray-800 border border-gray-700 text-sm text-white px-4 py-2.5 rounded-xl shadow-xl z-50 transition-all"></div>
+
+    <script>
+        const { createClient } = supabase;
+
+        // === CONFIG ===
+        let SUPABASE_URL = localStorage.getItem('ii_supabase_url') || '';
+        let SUPABASE_KEY = localStorage.getItem('ii_supabase_key') || '';
+        let ANTHROPIC_KEY = localStorage.getItem('ii_anthropic_key') || '';
+        let db = null;
+
+        function initSupabase() {
+            if (!SUPABASE_URL || !SUPABASE_KEY) return null;
+            try { return createClient(SUPABASE_URL, SUPABASE_KEY); } catch { return null; }
+        }
+
+        // === STATE ===
+        let employees = [];
+        let tasks = [];
+        let currentTask = null;
+
+        // === INIT ===
+        async function init() {
+            db = initSupabase();
+            if (!db) {
+                setTimeout(openSettingsModal, 600);
+                return;
+            }
+            await loadData();
+        }
+
+        async function loadData() {
+            await Promise.all([loadEmployees(), loadTasks()]);
+        }
+
+        // === EMPLOYEES ===
+        async function loadEmployees() {
+            if (!db) return;
+            const { data, error } = await db.from('employees').select('*').order('created_at');
+            if (error) { console.error('Employees:', error); return; }
+            employees = data || [];
+            renderEmployees();
+            populateAssigneeSelect();
+        }
+
+        const DEPT_CONFIG = {
+            management: { label: '👑 Управление', color: 'text-yellow-400 bg-yellow-900/20' },
+            dev:        { label: '💻 Разработка', color: 'text-blue-400 bg-blue-900/20' },
+            marketing:  { label: '📣 Маркетинг',  color: 'text-pink-400 bg-pink-900/20' },
+            sales:      { label: '💰 Продажи',     color: 'text-orange-400 bg-orange-900/20' },
+            hr:         { label: '🤝 HR',           color: 'text-purple-400 bg-purple-900/20' },
+            finance:    { label: '📊 Финансы',     color: 'text-green-400 bg-green-900/20' },
+            design:     { label: '🎨 Дизайн',      color: 'text-cyan-400 bg-cyan-900/20' },
+            other:      { label: '📦 Другое',      color: 'text-gray-400 bg-gray-800' },
+        };
+
+        function renderEmployees() {
+            const list = document.getElementById('employeeList');
+            const countEl = document.getElementById('employeeCount');
+            const emptyEl = document.getElementById('emptyTeam');
+
+            countEl.textContent = employees.length;
+
+            if (employees.length === 0) {
+                list.innerHTML = '';
+                if (emptyEl) list.appendChild(emptyEl);
+                emptyEl && (emptyEl.style.display = 'block');
+                return;
+            }
+
+            if (emptyEl) emptyEl.style.display = 'none';
+
+            list.innerHTML = employees.map(emp => {
+                const dept = DEPT_CONFIG[emp.department] || DEPT_CONFIG.other;
+                return `
+                <div class="employee-card bg-gray-800/60 rounded-xl p-3 border border-gray-700/40 hover:border-indigo-500/40">
+                    <div class="flex items-center gap-2.5 mb-2.5">
+                        <div class="w-9 h-9 bg-gray-700 rounded-full flex items-center justify-center text-xl flex-shrink-0">${emp.avatar_emoji || '👤'}</div>
+                        <div class="flex-1 min-w-0">
+                            <div class="text-sm font-medium text-white truncate">${emp.name}</div>
+                            <div class="text-xs text-gray-500 truncate">${emp.role}</div>
+                        </div>
+                        <div class="status-dot flex-shrink-0"></div>
+                    </div>
+                    <div class="flex items-center gap-1.5 mb-2">
+                        <span class="dept-badge px-1.5 py-0.5 rounded-md font-medium ${dept.color}">${dept.label}</span>
+                    </div>
+                    <div class="flex gap-1.5">
+                        <a href="chat.html?id=${emp.id}"
+                            class="flex-1 flex items-center justify-center gap-1 bg-indigo-600/20 hover:bg-indigo-600/40 text-indigo-300 rounded-lg py-1.5 text-xs font-medium transition-colors">
+                            💬 Чат
+                        </a>
+                        <button onclick="event.stopPropagation(); openEditEmployee('${emp.id}')"
+                            class="px-2 py-1.5 text-gray-600 hover:text-indigo-400 hover:bg-indigo-900/20 rounded-lg transition-colors text-xs" title="Редактировать">
+                            ✏️
+                        </button>
+                        <button onclick="event.stopPropagation(); fireEmployee('${emp.id}', '${emp.name}')"
+                            class="px-2 py-1.5 text-gray-600 hover:text-red-400 hover:bg-red-900/20 rounded-lg transition-colors text-xs" title="Уволить">
+                            ✕
+                        </button>
+                    </div>
+                </div>`;
+            }).join('');
+        }
+
+        function populateAssigneeSelect() {
+            const sel = document.getElementById('taskAssignee');
+            const prev = sel.value;
+            sel.innerHTML = '<option value="">— не назначено —</option>' +
+                employees.map(e => `<option value="${e.id}">${e.avatar_emoji || '👤'} ${e.name}</option>`).join('');
+            if (prev) sel.value = prev;
+        }
+
+        async function hireEmployee() {
+            const name = document.getElementById('hireName').value.trim();
+            const role = document.getElementById('hireRole').value.trim();
+            const emoji = document.getElementById('hireEmoji').value.trim() || '👤';
+            const department = document.getElementById('hireDepartment').value;
+            const description = document.getElementById('hireDescription').value.trim();
+
+            if (!name || !role) { showToast('Укажите имя и должность'); return; }
+            if (!db) { showToast('Настройте Supabase в настройках'); return; }
+
+            const systemPrompt = buildSystemPrompt(name, role, description);
+
+            const { error } = await db.from('employees').insert({ name, role, department, avatar_emoji: emoji, system_prompt: systemPrompt });
+            if (error) { showToast('Ошибка: ' + error.message); return; }
+
+            closeModal('hireModal');
+            ['hireName', 'hireRole', 'hireEmoji', 'hireDescription'].forEach(id => document.getElementById(id).value = '');
+            await loadEmployees();
+            showToast(`${emoji} ${name} принят на работу!`);
+        }
+
+        function buildSystemPrompt(name, role, description) {
+            return `Ты — ${name}, ${role} компании «ИИ-Империя».${description ? '\n\n' + description : ''}
+
+Правила:
+- Всегда отвечай на русском языке
+- Общайся профессионально, но дружелюбно
+- Будь конкретным и полезным, давай практические советы
+- Ты часть команды и заинтересован в успехе компании
+- Если ставят задачу — предлагай конкретный план действий`;
+        }
+
+        let editingEmployeeId = null;
+
+        function openEditEmployee(id) {
+            const emp = employees.find(e => e.id === id);
+            if (!emp) return;
+            editingEmployeeId = id;
+            document.getElementById('editName').value = emp.name;
+            document.getElementById('editEmoji').value = emp.avatar_emoji || '👤';
+            document.getElementById('editRole').value = emp.role;
+            document.getElementById('editSystemPrompt').value = emp.system_prompt || '';
+            document.getElementById('editEmployeeModal').classList.remove('hidden');
+        }
+
+        async function saveEmployee() {
+            const name = document.getElementById('editName').value.trim();
+            const emoji = document.getElementById('editEmoji').value.trim() || '👤';
+            const role = document.getElementById('editRole').value.trim();
+            const system_prompt = document.getElementById('editSystemPrompt').value.trim();
+            if (!name || !role) { showToast('Укажите имя и должность'); return; }
+            const { error } = await db.from('employees').update({ name, avatar_emoji: emoji, role, system_prompt }).eq('id', editingEmployeeId);
+            if (error) { showToast('Ошибка: ' + error.message); return; }
+            closeModal('editEmployeeModal');
+            await loadEmployees();
+            showToast('Сохранено ✓');
+        }
+
+        async function fireEmployee(id, name) {
+            if (!confirm(`Уволить ${name}?`)) return;
+            await db.from('messages').delete().eq('employee_id', id);
+            await db.from('tasks').update({ assigned_to: null }).eq('assigned_to', id);
+            await db.from('employees').delete().eq('id', id);
+            await loadData();
+            showToast(`${name} уволен`);
+        }
+
+        // === TASKS ===
+        async function loadTasks() {
+            if (!db) return;
+            const { data, error } = await db
+                .from('tasks')
+                .select('*, employees(name, avatar_emoji)')
+                .order('created_at', { ascending: false });
+            if (error) { console.error('Tasks:', error); return; }
+            tasks = data || [];
+            renderTasks();
+        }
+
+        const PRIORITY = {
+            high:   { icon: '🔴', label: 'Высокий' },
+            medium: { icon: '🟡', label: 'Средний' },
+            low:    { icon: '🟢', label: 'Низкий' },
+        };
+
+        function renderTasks() {
+            const cols = { todo: [], in_progress: [], done: [] };
+            tasks.forEach(t => { if (cols[t.status]) cols[t.status].push(t); });
+
+            const renderCol = items => items.length
+                ? items.map(t => `
+                    <div class="task-card bg-gray-800 rounded-lg p-3 border border-gray-700/50" onclick="openTaskDetail('${t.id}')">
+                        <div class="flex items-start justify-between gap-2 mb-1">
+                            <div class="text-sm font-medium text-white leading-snug">${escapeHtml(t.title)}</div>
+                            <span class="flex-shrink-0 text-sm">${(PRIORITY[t.priority] || PRIORITY.medium).icon}</span>
+                        </div>
+                        ${t.description ? `<p class="text-xs text-gray-600 line-clamp-2 mb-2">${escapeHtml(t.description)}</p>` : ''}
+                        ${t.employees ? `<div class="flex items-center gap-1 mt-1.5">
+                            <span class="text-xs">${t.employees.avatar_emoji || '👤'}</span>
+                            <span class="text-xs text-gray-600">${t.employees.name}</span>
+                        </div>` : ''}
+                    </div>`).join('')
+                : '<div class="text-center text-gray-700 text-xs py-6">Нет задач</div>';
+
+            document.getElementById('todoColumn').innerHTML = renderCol(cols.todo);
+            document.getElementById('inProgressColumn').innerHTML = renderCol(cols.in_progress);
+            document.getElementById('doneColumn').innerHTML = renderCol(cols.done);
+
+            document.getElementById('todoCount').textContent = cols.todo.length;
+            document.getElementById('inProgressCount').textContent = cols.in_progress.length;
+            document.getElementById('doneCount').textContent = cols.done.length;
+            document.getElementById('totalTasks').textContent = `${tasks.length} задач`;
+        }
+
+        async function createTask() {
+            const title = document.getElementById('taskTitle').value.trim();
+            const description = document.getElementById('taskDescription').value.trim();
+            const assigned_to = document.getElementById('taskAssignee').value || null;
+            const priority = document.getElementById('taskPriority').value;
+
+            if (!title) { showToast('Укажите название задачи'); return; }
+            if (!db) { showToast('Настройте Supabase в настройках'); return; }
+
+            const { error } = await db.from('tasks').insert({ title, description, assigned_to, priority, status: 'todo' });
+            if (error) { showToast('Ошибка: ' + error.message); return; }
+
+            closeModal('newTaskModal');
+            document.getElementById('taskTitle').value = '';
+            document.getElementById('taskDescription').value = '';
+            await loadTasks();
+            showToast('Задача создана');
+        }
+
+        function openTaskDetail(id) {
+            currentTask = tasks.find(t => t.id === id);
+            if (!currentTask) return;
+            const p = PRIORITY[currentTask.priority] || PRIORITY.medium;
+            const statuses = { todo: 'Новая', in_progress: 'В работе', done: 'Готово' };
+            document.getElementById('tdTitle').textContent = currentTask.title;
+            document.getElementById('tdDesc').textContent = currentTask.description || '';
+            document.getElementById('tdPriority').textContent = `${p.icon} ${p.label}`;
+            document.getElementById('tdStatus').textContent = statuses[currentTask.status] || '';
+            document.getElementById('tdAssignee').textContent = currentTask.employees
+                ? `${currentTask.employees.avatar_emoji || '👤'} ${currentTask.employees.name}`
+                : 'Не назначено';
+            document.getElementById('taskDetailModal').classList.remove('hidden');
+        }
+
+        async function moveTask(status) {
+            if (!currentTask || !db) return;
+            await db.from('tasks').update({ status, updated_at: new Date().toISOString() }).eq('id', currentTask.id);
+            closeModal('taskDetailModal');
+            await loadTasks();
+        }
+
+        async function deleteCurrentTask() {
+            if (!currentTask || !db) return;
+            if (!confirm('Удалить задачу «' + currentTask.title + '»?')) return;
+            await db.from('tasks').delete().eq('id', currentTask.id);
+            closeModal('taskDetailModal');
+            await loadTasks();
+            showToast('Задача удалена');
+        }
+
+        // === SETTINGS ===
+        function openSettingsModal() {
+            document.getElementById('cfgSupabaseUrl').value = SUPABASE_URL;
+            document.getElementById('cfgSupabaseKey').value = SUPABASE_KEY;
+            document.getElementById('cfgAnthropicKey').value = ANTHROPIC_KEY;
+            document.getElementById('settingsModal').classList.remove('hidden');
+        }
+
+        function saveSettings() {
+            SUPABASE_URL = document.getElementById('cfgSupabaseUrl').value.trim();
+            SUPABASE_KEY = document.getElementById('cfgSupabaseKey').value.trim();
+            ANTHROPIC_KEY = document.getElementById('cfgAnthropicKey').value.trim();
+            localStorage.setItem('ii_supabase_url', SUPABASE_URL);
+            localStorage.setItem('ii_supabase_key', SUPABASE_KEY);
+            localStorage.setItem('ii_anthropic_key', ANTHROPIC_KEY);
+            db = initSupabase();
+            closeModal('settingsModal');
+            if (db) { loadData(); showToast('Настройки сохранены ✓'); }
+            else showToast('Supabase не подключён — проверьте ключи');
+        }
+
+        // === MODALS ===
+        function openHireModal() { document.getElementById('hireModal').classList.remove('hidden'); }
+        function openNewTaskModal() { populateAssigneeSelect(); document.getElementById('newTaskModal').classList.remove('hidden'); }
+        function closeModal(id) { document.getElementById(id).classList.add('hidden'); }
+        function backdropClose(e, id) { if (e.target === e.currentTarget) closeModal(id); }
+
+        // === TOAST ===
+        let toastTimer;
+        function showToast(msg) {
+            const t = document.getElementById('toast');
+            t.textContent = msg;
+            t.classList.remove('hidden');
+            clearTimeout(toastTimer);
+            toastTimer = setTimeout(() => t.classList.add('hidden'), 2800);
+        }
+
+        function escapeHtml(s) {
+            return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+        }
+
+        init();
+    </script>
+</body>
+</html>

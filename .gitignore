@@ -1,13 +1,34 @@
-backend/.env
-backend/venv/
+# Python
 __pycache__/
 *.pyc
 *.pyo
-.env
+content-factory/backend/venv/
+content-factory/backend/.env
+
+# Node
 node_modules/
 .next/
-storage/
+
+# Env files
+.env
+*.env
+
+# Media (временные файлы обработки)
 *.mp4
 *.mp3
 *.wav
+storage/
+
+# Database
 *.db
+
+# OS
+.DS_Store
+Thumbs.db
+
+# VSCode
+.vscode/
+
+# Документы
+*.docx
+*.pdf

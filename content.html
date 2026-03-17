@@ -1,0 +1,828 @@
+<!DOCTYPE html>
+<html lang="ru" class="dark">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Контент — ИИ-Империя</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <style>
+        body { font-family: system-ui, -apple-system, sans-serif; }
+        .tab-btn.active { background: #4f46e5; color: white; border-color: #4f46e5; }
+        .tab-btn { transition: all 0.15s; }
+        .platform-btn.active { background: #4f46e5; color: white; }
+        .platform-btn { transition: all 0.15s; }
+        .tone-btn.active { background: #374151; color: #e5e7eb; }
+        .fade-in { animation: fadeIn 0.2s ease; }
+        @keyframes fadeIn { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: translateY(0); } }
+        ::-webkit-scrollbar { width: 5px; }
+        ::-webkit-scrollbar-thumb { background: #374151; border-radius: 3px; }
+        .result-card { animation: fadeIn 0.25s ease; }
+        .slide-card { counter-increment: slide; }
+        pre { white-space: pre-wrap; word-break: break-word; }
+        .spinner { animation: spin 0.8s linear infinite; }
+        @keyframes spin { to { transform: rotate(360deg); } }
+    </style>
+</head>
+<body class="bg-gray-950 text-gray-100 min-h-screen">
+
+    <!-- Header -->
+    <header class="border-b border-gray-800 bg-gray-900/90 backdrop-blur-sm sticky top-0 z-10">
+        <div class="flex items-center justify-between px-5 py-3.5">
+            <div class="flex items-center gap-4">
+                <a href="index.html" class="flex items-center gap-2">
+                    <div class="w-8 h-8 bg-indigo-600 rounded-lg flex items-center justify-center font-bold text-sm">ИИ</div>
+                    <span class="text-lg font-bold text-white">ИИ-Империя</span>
+                </a>
+                <nav class="flex items-center gap-1 ml-2">
+                    <a href="index.html" class="text-sm text-gray-500 hover:text-gray-300 px-3 py-1.5 rounded-lg hover:bg-gray-800 transition-colors">Команда</a>
+                    <a href="content.html" class="text-sm text-white bg-gray-800 px-3 py-1.5 rounded-lg">Контент</a>
+                </nav>
+            </div>
+            <div class="flex items-center gap-2">
+                <div id="statusBadge" class="hidden text-xs text-green-400 bg-green-900/30 px-2 py-1 rounded-full">● подключено</div>
+                <button onclick="openSettings()" class="text-gray-500 hover:text-gray-300 p-2 rounded-lg hover:bg-gray-800 transition-colors">⚙️</button>
+            </div>
+        </div>
+    </header>
+
+    <!-- Layout -->
+    <div class="flex" style="height: calc(100vh - 57px)">
+
+        <!-- Sidebar -->
+        <aside class="w-56 border-r border-gray-800 bg-gray-900/40 flex flex-col flex-shrink-0 overflow-y-auto">
+            <div class="p-3 space-y-1 pt-4">
+                <div class="text-xs font-semibold text-gray-600 uppercase tracking-wider px-2 mb-3">Инструменты</div>
+
+                <button class="tab-btn w-full text-left flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm text-gray-400 border border-transparent hover:bg-gray-800" data-tab="trends" onclick="switchTab('trends')">
+                    <span class="text-base">🔥</span>
+                    <div>
+                        <div class="font-medium">Тренды</div>
+                        <div class="text-xs text-gray-600">YouTube поиск</div>
+                    </div>
+                </button>
+
+                <button class="tab-btn w-full text-left flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm text-gray-400 border border-transparent hover:bg-gray-800" data-tab="script" onclick="switchTab('script')">
+                    <span class="text-base">🎬</span>
+                    <div>
+                        <div class="font-medium">Сценарий</div>
+                        <div class="text-xs text-gray-600">TikTok / Reels</div>
+                    </div>
+                </button>
+
+                <button class="tab-btn w-full text-left flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm text-gray-400 border border-transparent hover:bg-gray-800" data-tab="post" onclick="switchTab('post')">
+                    <span class="text-base">📱</span>
+                    <div>
+                        <div class="font-medium">Пост</div>
+                        <div class="text-xs text-gray-600">Instagram / VK</div>
+                    </div>
+                </button>
+
+                <button class="tab-btn w-full text-left flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm text-gray-400 border border-transparent hover:bg-gray-800" data-tab="article" onclick="switchTab('article')">
+                    <span class="text-base">📰</span>
+                    <div>
+                        <div class="font-medium">Статья</div>
+                        <div class="text-xs text-gray-600">Блог / Дзен</div>
+                    </div>
+                </button>
+
+                <button class="tab-btn w-full text-left flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm text-gray-400 border border-transparent hover:bg-gray-800" data-tab="carousel" onclick="switchTab('carousel')">
+                    <span class="text-base">🎠</span>
+                    <div>
+                        <div class="font-medium">Карусель</div>
+                        <div class="text-xs text-gray-600">Instagram слайды</div>
+                    </div>
+                </button>
+
+                <div class="border-t border-gray-800 my-3"></div>
+
+                <button class="tab-btn w-full text-left flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm text-gray-400 border border-transparent hover:bg-gray-800" data-tab="history" onclick="switchTab('history')">
+                    <span class="text-base">📂</span>
+                    <div>
+                        <div class="font-medium">История</div>
+                        <div class="text-xs text-gray-600">Сохранённый контент</div>
+                    </div>
+                </button>
+            </div>
+        </aside>
+
+        <!-- Main -->
+        <main class="flex-1 overflow-y-auto">
+
+            <!-- TRENDS TAB -->
+            <div id="tab-trends" class="hidden p-6 max-w-3xl">
+                <h2 class="text-lg font-semibold mb-1">🔥 Тренды YouTube</h2>
+                <p class="text-sm text-gray-500 mb-5">Находим видео по теме косметики, которые сейчас набирают просмотры</p>
+
+                <div class="flex gap-2 mb-6">
+                    <input id="trendsQuery" type="text" value="натуральная косметика уход за кожей"
+                        placeholder="Тема для поиска..."
+                        class="flex-1 bg-gray-800 border border-gray-700 rounded-xl px-4 py-2.5 text-sm text-white placeholder-gray-600 focus:outline-none focus:border-indigo-500 transition-colors"
+                        onkeydown="if(e.key==='Enter') searchTrends()">
+                    <button onclick="searchTrends()" id="trendsBtn"
+                        class="bg-indigo-600 hover:bg-indigo-500 text-white px-5 py-2.5 rounded-xl text-sm font-medium transition-colors flex items-center gap-2">
+                        <span id="trendsBtnText">🔍 Найти</span>
+                    </button>
+                </div>
+
+                <div id="trendsNoKey" class="hidden bg-yellow-900/20 border border-yellow-800 rounded-xl p-4 text-sm text-yellow-300 mb-4">
+                    ⚠️ Укажите YouTube API Key в настройках (⚙️) — получить бесплатно на console.cloud.google.com
+                </div>
+
+                <div id="trendsResults" class="space-y-3"></div>
+            </div>
+
+            <!-- SCRIPT TAB -->
+            <div id="tab-script" class="hidden p-6 max-w-3xl">
+                <h2 class="text-lg font-semibold mb-1">🎬 Генератор сценариев</h2>
+                <p class="text-sm text-gray-500 mb-5">Готовый сценарий для короткого видео в стиле бренда Мария</p>
+
+                <div class="space-y-4 mb-5">
+                    <div>
+                        <label class="block text-xs text-gray-500 mb-1.5">Тема или идея</label>
+                        <textarea id="scriptTopic" rows="3"
+                            placeholder="Например: 5 ошибок в утреннем уходе за кожей, которые делают все"
+                            class="w-full bg-gray-800 border border-gray-700 rounded-xl px-4 py-2.5 text-sm text-white placeholder-gray-600 focus:outline-none focus:border-indigo-500 transition-colors resize-none"></textarea>
+                    </div>
+
+                    <div>
+                        <label class="block text-xs text-gray-500 mb-1.5">Платформа</label>
+                        <div class="flex gap-2">
+                            <button class="platform-btn active text-sm px-4 py-1.5 rounded-lg border border-gray-700" data-group="scriptPlatform" data-val="TikTok">TikTok (60 сек)</button>
+                            <button class="platform-btn text-sm px-4 py-1.5 rounded-lg border border-gray-700 text-gray-400" data-group="scriptPlatform" data-val="Reels">Reels (30 сек)</button>
+                            <button class="platform-btn text-sm px-4 py-1.5 rounded-lg border border-gray-700 text-gray-400" data-group="scriptPlatform" data-val="Shorts">Shorts (45 сек)</button>
+                        </div>
+                    </div>
+
+                    <button onclick="generateScript()" id="scriptBtn"
+                        class="w-full bg-indigo-600 hover:bg-indigo-500 text-white py-2.5 rounded-xl text-sm font-medium transition-colors flex items-center justify-center gap-2">
+                        <span id="scriptBtnText">✨ Написать сценарий</span>
+                    </button>
+                </div>
+
+                <div id="scriptResult" class="hidden"></div>
+            </div>
+
+            <!-- POST TAB -->
+            <div id="tab-post" class="hidden p-6 max-w-3xl">
+                <h2 class="text-lg font-semibold mb-1">📱 Генератор постов</h2>
+                <p class="text-sm text-gray-500 mb-5">3 варианта поста с разным тоном — выберите лучший</p>
+
+                <div class="space-y-4 mb-5">
+                    <div>
+                        <label class="block text-xs text-gray-500 mb-1.5">Тема поста</label>
+                        <textarea id="postTopic" rows="3"
+                            placeholder="Например: анонс нового крема с гиалуроновой кислотой, или совет по уходу за сухой кожей зимой"
+                            class="w-full bg-gray-800 border border-gray-700 rounded-xl px-4 py-2.5 text-sm text-white placeholder-gray-600 focus:outline-none focus:border-indigo-500 transition-colors resize-none"></textarea>
+                    </div>
+
+                    <div class="grid grid-cols-2 gap-4">
+                        <div>
+                            <label class="block text-xs text-gray-500 mb-1.5">Платформа</label>
+                            <div class="flex gap-2 flex-wrap">
+                                <button class="platform-btn active text-xs px-3 py-1.5 rounded-lg border border-gray-700" data-group="postPlatform" data-val="Instagram">Instagram</button>
+                                <button class="platform-btn text-xs px-3 py-1.5 rounded-lg border border-gray-700 text-gray-400" data-group="postPlatform" data-val="Telegram">Telegram</button>
+                                <button class="platform-btn text-xs px-3 py-1.5 rounded-lg border border-gray-700 text-gray-400" data-group="postPlatform" data-val="VK">VK</button>
+                            </div>
+                        </div>
+                        <div>
+                            <label class="block text-xs text-gray-500 mb-1.5">Тон</label>
+                            <div class="flex gap-2 flex-wrap">
+                                <button class="tone-btn active text-xs px-3 py-1.5 rounded-lg border border-gray-700" data-group="postTone" data-val="дружеский">😊 Дружеский</button>
+                                <button class="tone-btn text-xs px-3 py-1.5 rounded-lg border border-gray-700 text-gray-400" data-group="postTone" data-val="экспертный">🎓 Экспертный</button>
+                                <button class="tone-btn text-xs px-3 py-1.5 rounded-lg border border-gray-700 text-gray-400" data-group="postTone" data-val="с юмором">😄 С юмором</button>
+                            </div>
+                        </div>
+                    </div>
+
+                    <button onclick="generatePost()" id="postBtn"
+                        class="w-full bg-indigo-600 hover:bg-indigo-500 text-white py-2.5 rounded-xl text-sm font-medium transition-colors flex items-center justify-center gap-2">
+                        <span id="postBtnText">✨ Написать посты</span>
+                    </button>
+                </div>
+
+                <div id="postResult" class="hidden"></div>
+            </div>
+
+            <!-- ARTICLE TAB -->
+            <div id="tab-article" class="hidden p-6 max-w-3xl">
+                <h2 class="text-lg font-semibold mb-1">📰 Генератор статей</h2>
+                <p class="text-sm text-gray-500 mb-5">Готовая статья для блога, Яндекс Дзена или Telegram-канала</p>
+
+                <div class="space-y-4 mb-5">
+                    <div>
+                        <label class="block text-xs text-gray-500 mb-1.5">Тема статьи</label>
+                        <input id="articleTopic" type="text"
+                            placeholder="Например: Как правильно выбрать крем для лица по типу кожи"
+                            class="w-full bg-gray-800 border border-gray-700 rounded-xl px-4 py-2.5 text-sm text-white placeholder-gray-600 focus:outline-none focus:border-indigo-500 transition-colors">
+                    </div>
+
+                    <div>
+                        <label class="block text-xs text-gray-500 mb-1.5">Платформа</label>
+                        <div class="flex gap-2">
+                            <button class="platform-btn active text-sm px-4 py-1.5 rounded-lg border border-gray-700" data-group="articlePlatform" data-val="блог">Блог сайта</button>
+                            <button class="platform-btn text-sm px-4 py-1.5 rounded-lg border border-gray-700 text-gray-400" data-group="articlePlatform" data-val="Дзен">Яндекс Дзен</button>
+                            <button class="platform-btn text-sm px-4 py-1.5 rounded-lg border border-gray-700 text-gray-400" data-group="articlePlatform" data-val="Telegram">Telegram</button>
+                        </div>
+                    </div>
+
+                    <button onclick="generateArticle()" id="articleBtn"
+                        class="w-full bg-indigo-600 hover:bg-indigo-500 text-white py-2.5 rounded-xl text-sm font-medium transition-colors flex items-center justify-center gap-2">
+                        <span id="articleBtnText">✨ Написать статью</span>
+                    </button>
+                </div>
+
+                <div id="articleResult" class="hidden"></div>
+            </div>
+
+            <!-- CAROUSEL TAB -->
+            <div id="tab-carousel" class="hidden p-6 max-w-3xl">
+                <h2 class="text-lg font-semibold mb-1">🎠 Генератор каруселей</h2>
+                <p class="text-sm text-gray-500 mb-5">Тексты для слайдов Instagram-карусели в стиле бренда</p>
+
+                <div class="space-y-4 mb-5">
+                    <div>
+                        <label class="block text-xs text-gray-500 mb-1.5">Тема карусели</label>
+                        <input id="carouselTopic" type="text"
+                            placeholder="Например: 7 ингредиентов в косметике, которых стоит избегать"
+                            class="w-full bg-gray-800 border border-gray-700 rounded-xl px-4 py-2.5 text-sm text-white placeholder-gray-600 focus:outline-none focus:border-indigo-500 transition-colors">
+                    </div>
+
+                    <div>
+                        <label class="block text-xs text-gray-500 mb-1.5">Количество слайдов</label>
+                        <div class="flex gap-2">
+                            <button class="platform-btn text-sm px-4 py-1.5 rounded-lg border border-gray-700 text-gray-400" data-group="carouselSlides" data-val="5">5 слайдов</button>
+                            <button class="platform-btn active text-sm px-4 py-1.5 rounded-lg border border-gray-700" data-group="carouselSlides" data-val="7">7 слайдов</button>
+                            <button class="platform-btn text-sm px-4 py-1.5 rounded-lg border border-gray-700 text-gray-400" data-group="carouselSlides" data-val="10">10 слайдов</button>
+                        </div>
+                    </div>
+
+                    <button onclick="generateCarousel()" id="carouselBtn"
+                        class="w-full bg-indigo-600 hover:bg-indigo-500 text-white py-2.5 rounded-xl text-sm font-medium transition-colors flex items-center justify-center gap-2">
+                        <span id="carouselBtnText">✨ Создать карусель</span>
+                    </button>
+                </div>
+
+                <div id="carouselResult" class="hidden"></div>
+            </div>
+
+            <!-- HISTORY TAB -->
+            <div id="tab-history" class="hidden p-6 max-w-3xl">
+                <div class="flex items-center justify-between mb-5">
+                    <div>
+                        <h2 class="text-lg font-semibold mb-1">📂 История контента</h2>
+                        <p class="text-sm text-gray-500">Весь сохранённый контент</p>
+                    </div>
+                    <button onclick="loadHistory()" class="text-sm text-gray-500 hover:text-gray-300 transition-colors">↺ Обновить</button>
+                </div>
+                <div id="historyList" class="space-y-3">
+                    <div class="text-center text-gray-600 py-10">Загрузка...</div>
+                </div>
+            </div>
+
+        </main>
+    </div>
+
+    <!-- Settings Modal -->
+    <div id="settingsModal" class="hidden fixed inset-0 bg-black/70 backdrop-blur-sm z-50 flex items-center justify-center" onclick="if(event.target===this)closeSettings()">
+        <div class="bg-gray-900 border border-gray-700 rounded-2xl w-full max-w-md mx-4 p-6">
+            <h3 class="text-base font-semibold mb-4">⚙️ Настройки</h3>
+            <div class="space-y-3">
+                <div>
+                    <label class="block text-xs text-gray-500 mb-1">YouTube Data API Key <span class="text-gray-700">(бесплатно)</span></label>
+                    <input id="cfgYoutubeKey" type="password" placeholder="AIza..."
+                        class="w-full bg-gray-800 border border-gray-700 rounded-lg px-3 py-2 text-sm text-white placeholder-gray-600 focus:outline-none focus:border-indigo-500 transition-colors">
+                    <div class="text-xs text-gray-700 mt-1">console.cloud.google.com → YouTube Data API v3</div>
+                </div>
+                <div>
+                    <label class="block text-xs text-gray-500 mb-1">Anthropic API Key</label>
+                    <input id="cfgAnthropicKey" type="password" placeholder="sk-ant-..."
+                        class="w-full bg-gray-800 border border-gray-700 rounded-lg px-3 py-2 text-sm text-white placeholder-gray-600 focus:outline-none focus:border-indigo-500 transition-colors">
+                </div>
+                <div>
+                    <label class="block text-xs text-gray-500 mb-1">Supabase URL</label>
+                    <input id="cfgSupabaseUrl" type="text" placeholder="https://xxxx.supabase.co"
+                        class="w-full bg-gray-800 border border-gray-700 rounded-lg px-3 py-2 text-sm text-white placeholder-gray-600 focus:outline-none focus:border-indigo-500 transition-colors">
+                </div>
+                <div>
+                    <label class="block text-xs text-gray-500 mb-1">Supabase Anon Key</label>
+                    <input id="cfgSupabaseKey" type="password" placeholder="eyJ..."
+                        class="w-full bg-gray-800 border border-gray-700 rounded-lg px-3 py-2 text-sm text-white placeholder-gray-600 focus:outline-none focus:border-indigo-500 transition-colors">
+                </div>
+                <div class="border-t border-gray-800 pt-3">
+                    <label class="block text-xs text-gray-500 mb-1">О бренде <span class="text-gray-700">(контекст для ИИ)</span></label>
+                    <textarea id="cfgBrandContext" rows="3"
+                        class="w-full bg-gray-800 border border-gray-700 rounded-lg px-3 py-2 text-sm text-white placeholder-gray-600 focus:outline-none focus:border-indigo-500 transition-colors resize-none"
+                        placeholder="Бренд: Мария — натуральная косметика..."></textarea>
+                </div>
+            </div>
+            <div class="flex gap-3 mt-5">
+                <button onclick="saveSettings()" class="flex-1 bg-indigo-600 hover:bg-indigo-500 text-white py-2 rounded-lg text-sm font-medium transition-colors">Сохранить</button>
+                <button onclick="closeSettings()" class="px-4 text-gray-500 hover:text-gray-300 text-sm transition-colors">Отмена</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Toast -->
+    <div id="toast" class="hidden fixed bottom-5 right-5 bg-gray-800 border border-gray-700 text-sm text-white px-4 py-2.5 rounded-xl shadow-xl z-50"></div>
+
+    <script>
+        const { createClient } = supabase;
+
+        // === CONFIG ===
+        let ANTHROPIC_KEY = localStorage.getItem('ii_anthropic_key') || '';
+        let YOUTUBE_KEY   = localStorage.getItem('ii_youtube_key')   || '';
+        let SUPABASE_URL  = localStorage.getItem('ii_supabase_url')  || '';
+        let SUPABASE_KEY  = localStorage.getItem('ii_supabase_key')  || '';
+        let BRAND_CONTEXT = localStorage.getItem('ii_brand_context') ||
+            'Бренд: Мария — натуральная косметика для ухода за кожей. Аудитория: женщины 25-45 лет. Тон: доверительный, экспертный, но доступный. Ценности: натуральность, честный состав, реальная эффективность.';
+
+        let db = (SUPABASE_URL && SUPABASE_KEY) ? createClient(SUPABASE_URL, SUPABASE_KEY) : null;
+
+        // === CURRENT SELECTIONS ===
+        const selections = {
+            scriptPlatform: 'TikTok',
+            postPlatform:   'Instagram',
+            postTone:       'дружеский',
+            articlePlatform:'блог',
+            carouselSlides: '7',
+        };
+
+        // === INIT ===
+        function init() {
+            setupPlatformButtons();
+            switchTab('trends');
+            if (db) document.getElementById('statusBadge').classList.remove('hidden');
+            if (!YOUTUBE_KEY && !ANTHROPIC_KEY) setTimeout(openSettings, 500);
+        }
+
+        // === TABS ===
+        function switchTab(name) {
+            document.querySelectorAll('[id^="tab-"]').forEach(el => el.classList.add('hidden'));
+            document.getElementById('tab-' + name).classList.remove('hidden');
+            document.querySelectorAll('.tab-btn').forEach(btn => {
+                btn.classList.toggle('active', btn.dataset.tab === name);
+            });
+            if (name === 'history') loadHistory();
+        }
+
+        // === PLATFORM BUTTONS ===
+        function setupPlatformButtons() {
+            document.querySelectorAll('[data-group]').forEach(btn => {
+                btn.addEventListener('click', () => {
+                    const group = btn.dataset.group;
+                    document.querySelectorAll(`[data-group="${group}"]`).forEach(b => {
+                        b.classList.remove('active');
+                        b.classList.add('text-gray-400');
+                    });
+                    btn.classList.add('active');
+                    btn.classList.remove('text-gray-400');
+                    selections[group] = btn.dataset.val;
+                });
+            });
+        }
+
+        // === YOUTUBE TRENDS ===
+        async function searchTrends() {
+            if (!YOUTUBE_KEY) {
+                document.getElementById('trendsNoKey').classList.remove('hidden');
+                return;
+            }
+            document.getElementById('trendsNoKey').classList.add('hidden');
+
+            const query = document.getElementById('trendsQuery').value.trim() || 'натуральная косметика';
+            const btn = document.getElementById('trendsBtn');
+            const btnText = document.getElementById('trendsBtnText');
+
+            btnText.innerHTML = '<svg class="spinner w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 2v4M12 18v4M4.93 4.93l2.83 2.83M16.24 16.24l2.83 2.83M2 12h4M18 12h4M4.93 19.07l2.83-2.83M16.24 7.76l2.83-2.83"/></svg> Ищу...';
+            btn.disabled = true;
+
+            const resultsEl = document.getElementById('trendsResults');
+            resultsEl.innerHTML = '<div class="text-center text-gray-600 py-6 text-sm">Загружаю тренды...</div>';
+
+            try {
+                // 7 days ago
+                const publishedAfter = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString();
+
+                const searchRes = await fetch(
+                    `https://www.googleapis.com/youtube/v3/search?part=snippet&q=${encodeURIComponent(query)}&order=viewCount&type=video&publishedAfter=${publishedAfter}&maxResults=8&relevanceLanguage=ru&key=${YOUTUBE_KEY}`
+                );
+                const searchData = await searchRes.json();
+
+                if (searchData.error) throw new Error(searchData.error.message);
+                if (!searchData.items || searchData.items.length === 0) {
+                    resultsEl.innerHTML = '<div class="text-center text-gray-600 py-6">Ничего не найдено</div>';
+                    return;
+                }
+
+                const ids = searchData.items.map(i => i.id.videoId).filter(Boolean).join(',');
+                const statsRes = await fetch(
+                    `https://www.googleapis.com/youtube/v3/videos?part=statistics,snippet&id=${ids}&key=${YOUTUBE_KEY}`
+                );
+                const statsData = await statsRes.json();
+
+                const videos = statsData.items || [];
+                resultsEl.innerHTML = videos.map(v => {
+                    const views = parseInt(v.statistics?.viewCount || 0);
+                    const viewsStr = views >= 1000000 ? (views/1000000).toFixed(1) + 'M' :
+                                     views >= 1000 ? (views/1000).toFixed(0) + 'K' : views;
+                    const published = new Date(v.snippet.publishedAt);
+                    const daysAgo = Math.floor((Date.now() - published) / 86400000);
+                    const daysStr = daysAgo === 0 ? 'сегодня' : daysAgo === 1 ? 'вчера' : `${daysAgo} дн. назад`;
+
+                    return `<div class="result-card bg-gray-900 border border-gray-800 rounded-xl p-4 hover:border-gray-700 transition-colors">
+                        <div class="flex items-start justify-between gap-3">
+                            <div class="flex-1">
+                                <div class="text-sm font-medium text-white leading-snug mb-1">${escHtml(v.snippet.title)}</div>
+                                <div class="flex items-center gap-3 text-xs text-gray-500">
+                                    <span>👁 ${viewsStr} просмотров</span>
+                                    <span>📅 ${daysStr}</span>
+                                    <span class="truncate max-w-32">📺 ${escHtml(v.snippet.channelTitle)}</span>
+                                </div>
+                            </div>
+                            <button onclick="useVideoForScript(${JSON.stringify(escHtml(v.snippet.title)).replace(/"/g,'&quot;')})"
+                                class="flex-shrink-0 text-xs bg-indigo-600/20 hover:bg-indigo-600/40 text-indigo-300 px-3 py-1.5 rounded-lg transition-colors whitespace-nowrap">
+                                📝 Сценарий
+                            </button>
+                        </div>
+                    </div>`;
+                }).join('');
+
+            } catch (err) {
+                resultsEl.innerHTML = `<div class="bg-red-900/20 border border-red-800 rounded-xl p-4 text-sm text-red-300">Ошибка: ${err.message}</div>`;
+            }
+
+            btnText.textContent = '🔍 Найти';
+            btn.disabled = false;
+        }
+
+        function useVideoForScript(title) {
+            document.getElementById('scriptTopic').value = `Вдохновение: "${title}"\n\nАдаптируй эту идею для бренда Мария`;
+            switchTab('script');
+        }
+
+        // === CLAUDE API CALL ===
+        async function callClaude(systemPrompt, userMessage) {
+            if (!ANTHROPIC_KEY) throw new Error('Укажите Anthropic API Key в настройках');
+
+            const res = await fetch('https://api.anthropic.com/v1/messages', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'x-api-key': ANTHROPIC_KEY,
+                    'anthropic-version': '2023-06-01',
+                    'anthropic-dangerous-direct-browser-access': 'true'
+                },
+                body: JSON.stringify({
+                    model: 'claude-opus-4-6',
+                    max_tokens: 2048,
+                    system: systemPrompt,
+                    messages: [{ role: 'user', content: userMessage }]
+                })
+            });
+
+            if (!res.ok) {
+                const err = await res.json().catch(() => ({}));
+                throw new Error(err.error?.message || `HTTP ${res.status}`);
+            }
+            const data = await res.json();
+            return data.content[0].text;
+        }
+
+        function setLoading(btnId, textId, loading, defaultText) {
+            const btn = document.getElementById(btnId);
+            const text = document.getElementById(textId);
+            btn.disabled = loading;
+            text.innerHTML = loading
+                ? '<svg class="spinner w-4 h-4 mr-1 inline" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 2v4M12 18v4M4.93 4.93l2.83 2.83M16.24 16.24l2.83 2.83M2 12h4M18 12h4M4.93 19.07l2.83-2.83M16.24 7.76l2.83-2.83"/></svg> Генерирую...'
+                : defaultText;
+        }
+
+        // === SCRIPT GENERATOR ===
+        async function generateScript() {
+            const topic = document.getElementById('scriptTopic').value.trim();
+            if (!topic) { showToast('Введите тему сценария'); return; }
+
+            const platform = selections.scriptPlatform;
+            const durations = { TikTok: '60 секунд', Reels: '30 секунд', Shorts: '45 секунд' };
+
+            setLoading('scriptBtn', 'scriptBtnText', true, '✨ Написать сценарий');
+
+            const system = `Ты — профессиональный сценарист вирусных коротких видео для социальных сетей.
+${BRAND_CONTEXT}
+
+Пиши сценарии которые:
+- Захватывают внимание с первой секунды (сильный hook)
+- Говорят о реальных болях и желаниях аудитории
+- Органично упоминают продукты Марии (не навязчиво)
+- Заканчиваются чётким призывом к действию
+
+Формат ответа — строго такой:
+🪝 КРЮЧОК (первые 3 секунды):
+[текст]
+
+📖 ОСНОВНАЯ ЧАСТЬ:
+[текст с таймингами]
+
+🎯 ПРИЗЫВ К ДЕЙСТВИЮ:
+[текст]
+
+📝 ПОДПИСЬ ПОД ВИДЕО:
+[текст + хэштеги]`;
+
+            try {
+                const result = await callClaude(system, `Напиши сценарий для ${platform} (${durations[platform]}) на тему: ${topic}`);
+                showScriptResult(result, topic, platform);
+                await saveContent('script', topic, platform, result);
+            } catch (err) {
+                showToast('Ошибка: ' + err.message);
+            }
+
+            setLoading('scriptBtn', 'scriptBtnText', false, '✨ Написать сценарий');
+        }
+
+        function showScriptResult(text, topic, platform) {
+            const el = document.getElementById('scriptResult');
+            el.className = 'fade-in';
+            el.innerHTML = `
+                <div class="bg-gray-900 border border-gray-700 rounded-xl p-5">
+                    <div class="flex items-center justify-between mb-4">
+                        <div class="flex items-center gap-2">
+                            <span class="text-sm font-medium text-white">🎬 Сценарий для ${platform}</span>
+                            <span class="text-xs text-gray-600 bg-gray-800 px-2 py-0.5 rounded-full">${platform}</span>
+                        </div>
+                        <button onclick="copyText(this)" data-text="${escAttr(text)}"
+                            class="text-xs text-indigo-400 hover:text-indigo-300 transition-colors px-3 py-1 rounded-lg hover:bg-indigo-900/20">
+                            📋 Копировать
+                        </button>
+                    </div>
+                    <pre class="text-sm text-gray-300 leading-relaxed">${escHtml(text)}</pre>
+                </div>`;
+        }
+
+        // === POST GENERATOR ===
+        async function generatePost() {
+            const topic = document.getElementById('postTopic').value.trim();
+            if (!topic) { showToast('Введите тему поста'); return; }
+
+            const platform = selections.postPlatform;
+            const tone = selections.postTone;
+
+            setLoading('postBtn', 'postBtnText', true, '✨ Написать посты');
+
+            const system = `Ты — SMM-специалист бренда натуральной косметики.
+${BRAND_CONTEXT}
+
+Правила постов для ${platform}:
+- Начало с цепляющей фразы (не с "Привет!")
+- Эмодзи уместно, не перебарщивай
+- Хэштеги в конце (5-8 штук)
+- Длина: для Instagram — 150-300 слов, Telegram — 100-200 слов, VK — 100-250 слов
+- Тон: ${tone}
+
+Напиши 3 разных варианта поста. Чётко разделяй их заголовком "ВАРИАНТ 1", "ВАРИАНТ 2", "ВАРИАНТ 3".`;
+
+            try {
+                const result = await callClaude(system, `Тема поста для ${platform}: ${topic}`);
+                showPostResult(result, topic, platform);
+                await saveContent('post', topic, platform, result);
+            } catch (err) {
+                showToast('Ошибка: ' + err.message);
+            }
+
+            setLoading('postBtn', 'postBtnText', false, '✨ Написать посты');
+        }
+
+        function showPostResult(text, topic, platform) {
+            const variants = text.split(/ВАРИАНТ \d+[:\.]?/i).filter(s => s.trim());
+            const el = document.getElementById('postResult');
+            el.className = 'fade-in space-y-4';
+            el.innerHTML = variants.map((v, i) => `
+                <div class="bg-gray-900 border border-gray-700 rounded-xl p-5">
+                    <div class="flex items-center justify-between mb-3">
+                        <span class="text-sm font-medium text-white">Вариант ${i+1}</span>
+                        <button onclick="copyText(this)" data-text="${escAttr(v.trim())}"
+                            class="text-xs text-indigo-400 hover:text-indigo-300 transition-colors px-3 py-1 rounded-lg hover:bg-indigo-900/20">
+                            📋 Копировать
+                        </button>
+                    </div>
+                    <pre class="text-sm text-gray-300 leading-relaxed">${escHtml(v.trim())}</pre>
+                </div>`).join('');
+        }
+
+        // === ARTICLE GENERATOR ===
+        async function generateArticle() {
+            const topic = document.getElementById('articleTopic').value.trim();
+            if (!topic) { showToast('Введите тему статьи'); return; }
+
+            const platform = selections.articlePlatform;
+            setLoading('articleBtn', 'articleBtnText', true, '✨ Написать статью');
+
+            const lengths = { блог: '800-1200 слов', Дзен: '600-900 слов', Telegram: '300-500 слов' };
+
+            const system = `Ты — контент-редактор бренда натуральной косметики. Пишешь полезные статьи для читателей.
+${BRAND_CONTEXT}
+
+Структура статьи:
+- Цепляющий заголовок (с числом или вопросом)
+- Вступление — почему это важно читателю
+- Основная часть с подзаголовками (H2)
+- Практические советы с конкретными рекомендациями
+- Вывод с призывом к действию
+- Длина: ${lengths[platform]}
+
+Органично упоминай продукты Марии где уместно. Пиши живым, понятным языком — без канцелярита.`;
+
+            try {
+                const result = await callClaude(system, `Напиши статью для ${platform} на тему: "${topic}"`);
+                showArticleResult(result, topic, platform);
+                await saveContent('article', topic, platform, result);
+            } catch (err) {
+                showToast('Ошибка: ' + err.message);
+            }
+
+            setLoading('articleBtn', 'articleBtnText', false, '✨ Написать статью');
+        }
+
+        function showArticleResult(text, topic, platform) {
+            const el = document.getElementById('articleResult');
+            el.className = 'fade-in';
+            el.innerHTML = `
+                <div class="bg-gray-900 border border-gray-700 rounded-xl p-5">
+                    <div class="flex items-center justify-between mb-4">
+                        <span class="text-sm font-medium text-white">📰 Статья для ${platform}</span>
+                        <button onclick="copyText(this)" data-text="${escAttr(text)}"
+                            class="text-xs text-indigo-400 hover:text-indigo-300 transition-colors px-3 py-1 rounded-lg hover:bg-indigo-900/20">
+                            📋 Копировать
+                        </button>
+                    </div>
+                    <pre class="text-sm text-gray-300 leading-relaxed">${escHtml(text)}</pre>
+                </div>`;
+        }
+
+        // === CAROUSEL GENERATOR ===
+        async function generateCarousel() {
+            const topic = document.getElementById('carouselTopic').value.trim();
+            if (!topic) { showToast('Введите тему карусели'); return; }
+
+            const slides = selections.carouselSlides;
+            setLoading('carouselBtn', 'carouselBtnText', true, '✨ Создать карусель');
+
+            const system = `Ты — дизайнер Instagram-каруселей для бренда натуральной косметики.
+${BRAND_CONTEXT}
+
+Создавай карусели по формату:
+- СЛАЙД 1: Обложка — цепляющий заголовок (5-7 слов) + подзаголовок
+- СЛАЙДЫ 2-N: Каждый слайд = 1 идея. Заголовок (3-5 слов) + текст (2-3 строки)
+- ПОСЛЕДНИЙ СЛАЙД: Призыв к действию + упоминание бренда
+
+Отвечай строго в формате:
+СЛАЙД 1
+Заголовок: ...
+Текст: ...
+
+СЛАЙД 2
+Заголовок: ...
+Текст: ...
+
+(и т.д.)`;
+
+            try {
+                const result = await callClaude(system, `Создай карусель из ${slides} слайдов на тему: "${topic}"`);
+                showCarouselResult(result, topic);
+                await saveContent('carousel', topic, `${slides} слайдов`, result);
+            } catch (err) {
+                showToast('Ошибка: ' + err.message);
+            }
+
+            setLoading('carouselBtn', 'carouselBtnText', false, '✨ Создать карусель');
+        }
+
+        function showCarouselResult(text, topic) {
+            const slideBlocks = text.split(/СЛАЙД \d+/i).filter(s => s.trim());
+            const el = document.getElementById('carouselResult');
+            el.className = 'fade-in';
+            el.innerHTML = `
+                <div class="mb-3 flex items-center justify-between">
+                    <span class="text-sm text-gray-400">${slideBlocks.length} слайдов</span>
+                    <button onclick="copyText(this)" data-text="${escAttr(text)}"
+                        class="text-xs text-indigo-400 hover:text-indigo-300 transition-colors px-3 py-1 rounded-lg hover:bg-indigo-900/20">
+                        📋 Копировать всё
+                    </button>
+                </div>
+                <div class="grid grid-cols-2 gap-3">
+                ${slideBlocks.map((block, i) => `
+                    <div class="slide-card bg-gray-900 border border-gray-700 rounded-xl p-4">
+                        <div class="text-xs text-indigo-400 font-semibold mb-2">СЛАЙД ${i+1}</div>
+                        <pre class="text-xs text-gray-300 leading-relaxed whitespace-pre-wrap">${escHtml(block.trim())}</pre>
+                    </div>`).join('')}
+                </div>`;
+        }
+
+        // === SAVE TO SUPABASE ===
+        async function saveContent(type, topic, platform, content) {
+            if (!db) return;
+            await db.from('content_items').insert({ type, topic, platform, content });
+        }
+
+        // === HISTORY ===
+        async function loadHistory() {
+            const el = document.getElementById('historyList');
+            if (!db) { el.innerHTML = '<div class="text-center text-gray-600 py-6 text-sm">Supabase не подключён</div>'; return; }
+
+            const { data, error } = await db.from('content_items').select('*').order('created_at', { ascending: false }).limit(30);
+            if (error || !data || data.length === 0) {
+                el.innerHTML = '<div class="text-center text-gray-600 py-10 text-sm">История пуста — сгенерируйте первый контент</div>';
+                return;
+            }
+
+            const icons = { script: '🎬', post: '📱', article: '📰', carousel: '🎠' };
+            const labels = { script: 'Сценарий', post: 'Пост', article: 'Статья', carousel: 'Карусель' };
+
+            el.innerHTML = data.map(item => {
+                const date = new Date(item.created_at).toLocaleDateString('ru', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' });
+                const preview = item.content.substring(0, 120).replace(/\n/g, ' ') + '...';
+                return `<div class="bg-gray-900 border border-gray-800 rounded-xl p-4 hover:border-gray-700 transition-colors">
+                    <div class="flex items-start justify-between gap-3">
+                        <div class="flex-1">
+                            <div class="flex items-center gap-2 mb-1">
+                                <span class="text-sm">${icons[item.type] || '📄'}</span>
+                                <span class="text-xs font-medium text-indigo-400">${labels[item.type] || item.type}</span>
+                                ${item.platform ? `<span class="text-xs text-gray-600">${item.platform}</span>` : ''}
+                                <span class="text-xs text-gray-700 ml-auto">${date}</span>
+                            </div>
+                            <div class="text-sm text-gray-400">${escHtml(item.topic || '')}</div>
+                            <div class="text-xs text-gray-600 mt-1 line-clamp-2">${escHtml(preview)}</div>
+                        </div>
+                        <button onclick="copyText(this)" data-text="${escAttr(item.content)}"
+                            class="flex-shrink-0 text-xs text-gray-600 hover:text-indigo-400 transition-colors px-2 py-1">
+                            📋
+                        </button>
+                    </div>
+                </div>`;
+            }).join('');
+        }
+
+        // === SETTINGS ===
+        function openSettings() {
+            document.getElementById('cfgYoutubeKey').value   = YOUTUBE_KEY;
+            document.getElementById('cfgAnthropicKey').value = ANTHROPIC_KEY;
+            document.getElementById('cfgSupabaseUrl').value  = SUPABASE_URL;
+            document.getElementById('cfgSupabaseKey').value  = SUPABASE_KEY;
+            document.getElementById('cfgBrandContext').value = BRAND_CONTEXT;
+            document.getElementById('settingsModal').classList.remove('hidden');
+        }
+
+        function closeSettings() { document.getElementById('settingsModal').classList.add('hidden'); }
+
+        function saveSettings() {
+            YOUTUBE_KEY   = document.getElementById('cfgYoutubeKey').value.trim();
+            ANTHROPIC_KEY = document.getElementById('cfgAnthropicKey').value.trim();
+            SUPABASE_URL  = document.getElementById('cfgSupabaseUrl').value.trim();
+            SUPABASE_KEY  = document.getElementById('cfgSupabaseKey').value.trim();
+            BRAND_CONTEXT = document.getElementById('cfgBrandContext').value.trim();
+
+            localStorage.setItem('ii_youtube_key',   YOUTUBE_KEY);
+            localStorage.setItem('ii_anthropic_key', ANTHROPIC_KEY);
+            localStorage.setItem('ii_supabase_url',  SUPABASE_URL);
+            localStorage.setItem('ii_supabase_key',  SUPABASE_KEY);
+            localStorage.setItem('ii_brand_context', BRAND_CONTEXT);
+
+            db = (SUPABASE_URL && SUPABASE_KEY) ? createClient(SUPABASE_URL, SUPABASE_KEY) : null;
+            if (db) document.getElementById('statusBadge').classList.remove('hidden');
+
+            closeSettings();
+            showToast('Настройки сохранены ✓');
+        }
+
+        // === HELPERS ===
+        function copyText(btn) {
+            const text = btn.dataset.text;
+            navigator.clipboard.writeText(text).then(() => {
+                const orig = btn.textContent;
+                btn.textContent = '✓ Скопировано';
+                setTimeout(() => btn.textContent = orig, 1500);
+            });
+        }
+
+        function escHtml(s) {
+            return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+        }
+
+        function escAttr(s) {
+            return String(s).replace(/&/g,'&amp;').replace(/"/g,'&quot;').replace(/'/g,'&#39;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+        }
+
+        let toastTimer;
+        function showToast(msg) {
+            const t = document.getElementById('toast');
+            t.textContent = msg;
+            t.classList.remove('hidden');
+            clearTimeout(toastTimer);
+            toastTimer = setTimeout(() => t.classList.add('hidden'), 2800);
+        }
+
+        init();
+    </script>
+</body>
+</html>
