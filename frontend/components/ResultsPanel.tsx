@@ -11,10 +11,13 @@ interface Video {
   thumbnail_url?: string;
   language?: string;
   velocity?: number;
+  subscribers?: number;
+  viral_ratio?: number;
 }
 
 interface Props {
   videos: Video[];
+  onProcess?: () => void;
 }
 
 const PLATFORM_EMOJI: Record<string, string> = {
@@ -30,7 +33,7 @@ function formatNumber(n: number): string {
   return String(n);
 }
 
-export default function ResultsPanel({ videos }: Props) {
+export default function ResultsPanel({ videos, onProcess }: Props) {
   const [processingIds, setProcessingIds] = useState<Set<string>>(new Set());
   const [taskMap, setTaskMap] = useState<Record<string, string>>({});
 
@@ -76,7 +79,7 @@ export default function ResultsPanel({ videos }: Props) {
         <h2 className="font-semibold text-gray-900">
           Найдено вирусных видео: <span className="text-brand-400">{videos.length}</span>
         </h2>
-        <span className="text-xs text-gray-400">Сортировка по velocity (просмотры/час)</span>
+        <span className="text-xs text-gray-400">Сортировка по вирусному коэффициенту</span>
       </div>
 
       <div className="grid gap-3">
@@ -112,13 +115,23 @@ export default function ResultsPanel({ videos }: Props) {
               <h3 className="text-sm font-medium text-gray-900 line-clamp-2 leading-snug">
                 {video.title}
               </h3>
-              <div className="flex items-center gap-3 mt-1.5">
+              <div className="flex items-center gap-3 mt-1.5 flex-wrap">
                 <span className="text-xs text-gray-400">
                   👁 {formatNumber(video.views)}
                 </span>
                 <span className="text-xs text-gray-400">
                   ❤️ {formatNumber(video.likes)}
                 </span>
+                {video.subscribers !== undefined && (
+                  <span className="text-xs text-gray-400">
+                    👥 {formatNumber(video.subscribers)}
+                  </span>
+                )}
+                {video.viral_ratio !== undefined && (
+                  <span className="text-xs text-orange-500 font-medium">
+                    🔥 {video.viral_ratio}x
+                  </span>
+                )}
                 {video.velocity && (
                   <span className="text-xs text-brand-400 font-medium">
                     ⚡ {Math.round(video.velocity).toLocaleString()} views/h
@@ -130,12 +143,12 @@ export default function ResultsPanel({ videos }: Props) {
             {/* Action */}
             <div className="flex flex-col justify-center flex-shrink-0">
               {taskMap[video.id] ? (
-                <a
-                  href={`/?task=${taskMap[video.id]}`}
-                  className="text-xs text-brand-500 hover:underline"
+                <button
+                  onClick={() => onProcess?.()}
+                  className="text-xs text-brand-500 hover:underline text-left"
                 >
                   Смотреть результат →
-                </a>
+                </button>
               ) : (
                 <button
                   onClick={() => processVideo(video)}

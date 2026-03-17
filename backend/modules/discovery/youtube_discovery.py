@@ -22,6 +22,18 @@ BEAUTY_KEYWORDS = [
     "серум", "serum", "moisturizer", "toner", "face mask",
     "beauty routine", "glowing skin", "anti aging", "acne",
     "тоник", "маска для лица", "крем для лица",
+    "natural skincare", "натуральная косметика", "уход за лицом",
+    "lifestyle beauty", "self care routine", "утренний уход",
+    "вечерний уход", "organic skincare", "чистая кожа",
+    "омоложение", "увлажнение кожи", "glow skin",
+]
+
+# Слова которые должны быть в заголовке/тегах чтобы видео прошло фильтр
+RELEVANCE_KEYWORDS = [
+    "skin", "face", "beauty", "skincare", "cream", "serum", "routine",
+    "косметик", "уход", "кожа", "лицо", "крем", "маска", "тоник",
+    "lifestyle", "self care", "glow", "natural", "organic",
+    "макияж", "makeup", "moisture", "антивозраст", "anti age",
 ]
 
 
@@ -61,13 +73,32 @@ async def search_viral_youtube(
                     seen_ids.add(v["id"])
                     all_videos.append(v)
 
-    # Sort by engagement velocity (views / age in hours)
+    # Фильтр по релевантности — оставляем только видео про косметику/уход
+    all_videos = [v for v in all_videos if _is_relevant(v)]
+
+    # Получаем количество подписчиков для расчёта вирусности
+    async with httpx.AsyncClient(timeout=30) as client:
+        channel_ids = list({v["channel_id"] for v in all_videos if v.get("channel_id")})
+        subscribers = await _get_channel_subscribers(client, base_url, channel_ids)
+
+    # Считаем метрики вирусности
     for v in all_videos:
         age_hours = max(1, _hours_since(v.get("published_at")))
-        v["velocity"] = v.get("views", 0) / age_hours
+        views = v.get("views", 0)
+        subs = subscribers.get(v.get("channel_id", ""), 1)
 
-    all_videos.sort(key=lambda x: x["velocity"], reverse=True)
-    return all_videos
+        # Скорость набора просмотров
+        v["velocity"] = views / age_hours
+        # Вирусный коэффициент: во сколько раз просмотры превышают подписчиков
+        v["viral_ratio"] = round(views / max(subs, 1), 2)
+        v["subscribers"] = subs
+
+    # Фильтр: оставляем только те где просмотры хотя бы в 0.5 раза больше подписчиков
+    all_videos = [v for v in all_videos if v.get("viral_ratio", 0) >= 0.5]
+
+    # Сортируем по вирусному коэффициенту
+    all_videos.sort(key=lambda x: x["viral_ratio"], reverse=True)
+    return all_videos[:50]  # возвращаем топ-50
 
 
 async def _get_trending(client, base_url, region, max_results) -> list[dict]:
@@ -128,6 +159,7 @@ def _parse_videos(items: list, region: str) -> list[dict]:
             "original_url": f"https://www.youtube.com/watch?v={item['id']}",
             "title": snippet.get("title", ""),
             "author": snippet.get("channelTitle", ""),
+            "channel_id": snippet.get("channelId", ""),
             "views": int(stats.get("viewCount", 0)),
             "likes": int(stats.get("likeCount", 0)),
             "comments": int(stats.get("commentCount", 0)),
@@ -150,6 +182,35 @@ def _hours_since(published_at: Optional[str]) -> float:
         return max(1.0, delta.total_seconds() / 3600)
     except Exception:
         return 168
+
+
+def _is_relevant(video: dict) -> bool:
+    """Проверяет что видео относится к красоте/уходу/лайфстайлу."""
+    title = (video.get("title") or "").lower()
+    tags = " ".join(video.get("tags") or []).lower()
+    text = f"{title} {tags}"
+    return any(kw.lower() in text for kw in RELEVANCE_KEYWORDS)
+
+
+async def _get_channel_subscribers(client, base_url, channel_ids: list) -> dict:
+    """Возвращает словарь {channel_id: subscribers}."""
+    if not channel_ids:
+        return {}
+    result = {}
+    # Запрашиваем по 50 каналов за раз
+    for i in range(0, len(channel_ids), 50):
+        batch = channel_ids[i:i+50]
+        resp = await client.get(f"{base_url}/channels", params={
+            "part": "statistics",
+            "id": ",".join(batch),
+            "key": settings.youtube_api_key,
+        })
+        if resp.status_code != 200:
+            continue
+        for item in resp.json().get("items", []):
+            subs = int(item.get("statistics", {}).get("subscriberCount", 0))
+            result[item["id"]] = subs
+    return result
 
 
 def _pick_keyword() -> str:

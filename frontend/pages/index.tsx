@@ -73,7 +73,12 @@ export default function Home() {
             />
           )}
           {activeTab === "process" && <ProcessPanel />}
-          {activeTab === "results" && <ResultsPanel videos={results} />}
+          {activeTab === "results" && (
+            <ResultsPanel
+              videos={results}
+              onProcess={() => setActiveTab("process")}
+            />
+          )}
         </main>
       </div>
     </>
